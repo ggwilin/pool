@@ -345,7 +345,8 @@ func (c *Client) InitAccount(ctx context.Context, account *account.Account) erro
 // the request as an account closure.
 func (c *Client) ModifyAccount(ctx context.Context, account *account.Account,
 	inputs []*wire.TxIn, outputs []*wire.TxOut,
-	modifiers []account.Modifier) ([]byte, error) {
+	modifiers []account.Modifier, traderNonces []byte,
+	prevOutputs []*wire.TxOut) ([]byte, []byte, error) {
 
 	rpcInputs := make([]*auctioneerrpc.ServerInput, 0, len(inputs))
 	for _, input := range inputs {
@@ -367,28 +368,36 @@ func (c *Client) ModifyAccount(ctx context.Context, account *account.Account,
 		})
 	}
 
-	var rpcNewParams *auctioneerrpc.ServerModifyAccountRequest_NewAccountParameters
-	modifiedAccount := account.Copy(modifiers...)
+	req := &auctioneerrpc.ServerModifyAccountRequest{
+		TraderKey:    account.TraderKey.PubKey.SerializeCompressed(),
+		NewInputs:    rpcInputs,
+		NewOutputs:   rpcOutputs,
+		TraderNonces: traderNonces,
+		PrevOutputs:  make([]*auctioneerrpc.TxOut, len(prevOutputs)),
+	}
+
 	if len(modifiers) > 0 {
-		rpcNewParams = &auctioneerrpc.ServerModifyAccountRequest_NewAccountParameters{
-			Value:  uint64(modifiedAccount.Value),
-			Expiry: modifiedAccount.Expiry,
+		modifiedAccount := account.Copy(modifiers...)
+		req.NewParams = &auctioneerrpc.ServerModifyAccountRequest_NewAccountParameters{
+			Value:   uint64(modifiedAccount.Value),
+			Expiry:  modifiedAccount.Expiry,
+			Version: uint32(modifiedAccount.Version),
 		}
 	}
 
-	resp, err := c.client.ModifyAccount(
-		ctx, &auctioneerrpc.ServerModifyAccountRequest{
-			TraderKey:  account.TraderKey.PubKey.SerializeCompressed(),
-			NewInputs:  rpcInputs,
-			NewOutputs: rpcOutputs,
-			NewParams:  rpcNewParams,
-		},
-	)
-	if err != nil {
-		return nil, err
+	for idx, prevOutput := range prevOutputs {
+		req.PrevOutputs[idx] = &auctioneerrpc.TxOut{
+			Value:    uint64(prevOutput.Value),
+			PkScript: prevOutput.PkScript,
+		}
 	}
 
-	return resp.AccountSig, nil
+	resp, err := c.client.ModifyAccount(ctx, req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return resp.AccountSig, resp.ServerNonces, nil
 }
 
 // SubmitOrder sends a fully finished order message to the server and interprets

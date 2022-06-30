@@ -434,8 +434,8 @@ type Auctioneer interface {
 	// The inputs and outputs provided should exclude the account input
 	// being spent and the account output potentially being recreated, since
 	// the auctioneer can construct those themselves.
-	ModifyAccount(context.Context, *Account, []*wire.TxIn,
-		[]*wire.TxOut, []Modifier) ([]byte, error)
+	ModifyAccount(context.Context, *Account, []*wire.TxIn, []*wire.TxOut,
+		[]Modifier, []byte, []*wire.TxOut) ([]byte, []byte, error)
 
 	// StartAccountSubscription opens a stream to the server and subscribes
 	// to all updates that concern the given account, including all orders
@@ -506,14 +506,11 @@ func (o *OutputWithFee) CloseOutputs(accountValue btcutil.Amount,
 
 	// Determine the appropriate witness size based on the input and output
 	// type.
-	switch witnessType {
-	case expiryWitness:
-		weightEstimator.AddWitnessInput(poolscript.ExpiryWitnessSize)
-	case multiSigWitness:
-		weightEstimator.AddWitnessInput(poolscript.MultiSigWitnessSize)
-	default:
-		return nil, fmt.Errorf("unhandled witness type %v", witnessType)
+	witnessSize, err := witnessType.witnessSize()
+	if err != nil {
+		return nil, err
 	}
+	weightEstimator.AddWitnessInput(witnessSize)
 
 	pkScript, err := txscript.ParsePkScript(o.PkScript)
 	if err != nil {
@@ -541,6 +538,12 @@ func (o *OutputWithFee) CloseOutputs(accountValue btcutil.Amount,
 		dustLimit = lnwallet.DustLimitForSize(
 			input.P2WSHSize,
 		)
+
+	case txscript.WitnessV1TaprootTy:
+		weightEstimator.AddP2TROutput()
+		dustLimit = lnwallet.DustLimitForSize(
+			input.P2TRSize,
+		)
 	}
 
 	fee := o.FeeRate.FeeForWeight(int64(weightEstimator.Weight()))
@@ -550,12 +553,10 @@ func (o *OutputWithFee) CloseOutputs(accountValue btcutil.Amount,
 			"in dust", pkScript, o.FeeRate)
 	}
 
-	return []*wire.TxOut{
-		{
-			Value:    int64(outputValue),
-			PkScript: pkScript.Script(),
-		},
-	}, nil
+	return []*wire.TxOut{{
+		Value:    int64(outputValue),
+		PkScript: pkScript.Script(),
+	}}, nil
 }
 
 // OutputsWithImplicitFee signals that the transaction fee is implicitly defined
