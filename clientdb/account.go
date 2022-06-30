@@ -10,6 +10,14 @@ import (
 	"go.etcd.io/bbolt"
 )
 
+const (
+	// accountStateVersionedMask is a bit mask for detecting from the state
+	// of an account whether that account has a version field encoded with
+	// it or not. We use the first bit of the uint8 state field because we
+	// are unlikely to ever have more than 127 different states.
+	accountStateVersionedMask account.State = 0b1000_0000
+)
+
 var (
 	// accountBucketKey is the top level bucket where we can find all
 	// information about complete accounts. These accounts are indexed by
@@ -20,6 +28,23 @@ var (
 	// information about an account but it is not found.
 	ErrAccountNotFound = errors.New("account not found")
 )
+
+// isVersioned returns true if the version bit is set in the given account
+// state.
+func isVersioned(state account.State) bool {
+	return state&accountStateVersionedMask == accountStateVersionedMask
+}
+
+// setVersionBit sets the version bit in the given account state.
+func setVersionBit(state account.State) account.State {
+	return state | accountStateVersionedMask
+}
+
+// clearVersionBit clears the version bit in the given account state.
+func clearVersionBit(state account.State) account.State {
+	// The &^ operator means AND NOT, also known as the Bitclear operator.
+	return state &^ accountStateVersionedMask
+}
 
 // getAccountKey returns the key for an account which is not partial.
 func getAccountKey(account *account.Account) []byte {
@@ -156,9 +181,15 @@ func readAccount(sourceBucket *bbolt.Bucket,
 }
 
 func serializeAccount(w *bytes.Buffer, a *account.Account) error {
+	rawState := a.State
+	accountIsVersioned := a.Version > account.VersionInitialNoVersion
+	if accountIsVersioned {
+		rawState = setVersionBit(rawState)
+	}
+
 	err := WriteElements(
 		w, a.Value, a.Expiry, a.TraderKey, a.AuctioneerKey, a.BatchKey,
-		a.Secret, a.State, a.HeightHint, a.OutPoint,
+		a.Secret, rawState, a.HeightHint, a.OutPoint,
 	)
 	if err != nil {
 		return err
@@ -175,18 +206,35 @@ func serializeAccount(w *bytes.Buffer, a *account.Account) error {
 		}
 	}
 
+	// The version flag encoded within the state will inform the
+	// de-serialize method that it should read another field. Therefore, we
+	// can safely write it here.
+	if accountIsVersioned {
+		if err := WriteElement(w, a.Version); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func deserializeAccount(r io.Reader) (*account.Account, error) {
-	var a account.Account
+	var (
+		a        account.Account
+		rawState account.State
+	)
 	err := ReadElements(
 		r, &a.Value, &a.Expiry, &a.TraderKey, &a.AuctioneerKey,
-		&a.BatchKey, &a.Secret, &a.State, &a.HeightHint, &a.OutPoint,
+		&a.BatchKey, &a.Secret, &rawState, &a.HeightHint, &a.OutPoint,
 	)
 	if err != nil {
 		return nil, err
 	}
+
+	// We might have a version flag encoded within the state. We want to
+	// hide that internal mechanism from the caller, so we need to remove
+	// the flag again.
+	a.State = clearVersionBit(rawState)
 
 	// The latest transaction is not found within StateInitiated and
 	// StateCanceledAfterRecovery.
@@ -195,6 +243,14 @@ func deserializeAccount(r io.Reader) (*account.Account, error) {
 
 	default:
 		if err := ReadElement(r, &a.LatestTx); err != nil {
+			return nil, err
+		}
+	}
+
+	// If there was a version flag, we know we're supposed to read another
+	// field here.
+	if isVersioned(rawState) {
+		if err := ReadElement(r, &a.Version); err != nil {
 			return nil, err
 		}
 	}
