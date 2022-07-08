@@ -34,6 +34,10 @@ const (
 	// notAllowedNodeIDsType is the tlv type we use to store the list of
 	// node ids the order is not allowed to match with.
 	notAllowedNodeIDsType tlv.Type = 5
+
+	// privateChannelType is the tlv type we use to store the flag for
+	// private channel order constrains.
+	privateChannelType tlv.Type = 6
 )
 
 var (
@@ -674,6 +678,7 @@ func deserializeOrderTlvData(r io.Reader, o order.Order) error {
 		channelType       uint8
 		allowedNodeIDs    []byte
 		notAllowedNodeIDs []byte
+		privateChannel    uint8
 	)
 
 	// We'll add records for all possible additional order data fields here
@@ -689,6 +694,7 @@ func deserializeOrderTlvData(r io.Reader, o order.Order) error {
 		tlv.MakePrimitiveRecord(
 			notAllowedNodeIDsType, &notAllowedNodeIDs,
 		),
+		tlv.MakePrimitiveRecord(privateChannelType, &privateChannel),
 	)
 	if err != nil {
 		return err
@@ -719,6 +725,10 @@ func deserializeOrderTlvData(r io.Reader, o order.Order) error {
 				return err
 			}
 		}
+
+		if t, ok := parsedTypes[privateChannelType]; ok && t == nil {
+			castOrder.PrivateChannel = privateChannel == 1
+		}
 	}
 
 	if t, ok := parsedTypes[orderChannelType]; ok && t == nil {
@@ -747,8 +757,10 @@ func deserializeOrderTlvData(r io.Reader, o order.Order) error {
 // serializeOrderTlvData encodes all additional data of an order as a single tlv
 // stream.
 func serializeOrderTlvData(w io.Writer, o order.Order) error {
-	var tlvRecords []tlv.Record
-
+	var (
+		tlvRecords            []tlv.Record
+		asksForPrivateChannel bool
+	)
 	switch castOrder := o.(type) {
 	case *order.Ask:
 
@@ -773,6 +785,10 @@ func serializeOrderTlvData(w io.Writer, o order.Order) error {
 				bidSidecarTicketType, &sidecarBytes,
 			))
 		}
+
+		if castOrder.PrivateChannel {
+			asksForPrivateChannel = true
+		}
 	}
 
 	channelType := uint8(o.Details().ChannelType)
@@ -796,6 +812,13 @@ func serializeOrderTlvData(w io.Writer, o order.Order) error {
 				notAllowedNodeIDsType, &idBytes,
 			),
 		)
+	}
+
+	if asksForPrivateChannel {
+		privateChannel := uint8(1)
+		tlvRecords = append(tlvRecords, tlv.MakePrimitiveRecord(
+			privateChannelType, &privateChannel,
+		))
 	}
 
 	tlvStream, err := tlv.NewStream(tlvRecords...)

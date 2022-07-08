@@ -40,6 +40,7 @@ func TestSubmitOrder(t *testing.T) {
 				MultiSigKeyIndex: 7,
 			},
 		},
+		PrivateChannel: true,
 	}
 	o.Details().MinUnitsMatch = 10
 	o.Details().ChannelType = order.ChannelTypeScriptEnforced

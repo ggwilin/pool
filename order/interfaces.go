@@ -592,6 +592,10 @@ type Bid struct {
 	// happens out of band). This will only be used if the order version is
 	// VersionSidecarChannel or greater.
 	SidecarTicket *sidecar.Ticket
+
+	// PrivateChannel is the flag that signals if the channels created
+	// by the order's matches should be announced to the network or not.
+	PrivateChannel bool
 }
 
 // Type returns the order type.
