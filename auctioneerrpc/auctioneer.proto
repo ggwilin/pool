@@ -965,6 +965,12 @@ message ServerBid {
     correspond to the recipient node's details.
     */
     bool is_sidecar_channel = 7;
+
+    /*
+    Flag used to decided if the channels resulting from this order's matches
+    should be announced to the network or not.
+    */
+    bool private_channel = 8;
 }
 
 message ServerAsk {

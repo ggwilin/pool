@@ -671,6 +671,12 @@ message Bid {
     the base58 encoded ticket, including the prefix and the checksum.
     */
     string sidecar_ticket = 6;
+
+    /*
+    Flag used to decided if the channels resulting from this order's matches
+    should be announced to the network or not.
+    */
+    bool private_channel = 7;
 }
 
 message Ask {

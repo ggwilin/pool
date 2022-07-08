@@ -1180,6 +1180,10 @@
         "sidecar_ticket": {
           "type": "string",
           "description": "If this bid order is meant to lease a channel for another node (which is\ndubbed a \"sidecar channel\") then this ticket contains all information\nrequired for setting up that sidecar channel. The ticket is expected to be\nthe base58 encoded ticket, including the prefix and the checksum."
+        },
+        "private_channel": {
+          "type": "boolean",
+          "description": "Flag used to decided if the channels resulting from this order's matches\nshould be announced to the network or not."
         }
       }
     },
