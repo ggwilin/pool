@@ -705,6 +705,7 @@ func (m *Manager) BatchChannelSetup(
 					matchedOrderBid.SelfChanBalance,
 				),
 				CommitmentType: commitmentType,
+				Private:        matchedOrderBid.PrivateChannel,
 			}
 			chanStream, err := m.cfg.BaseClient.OpenChannel(
 				setupCtx, fundingReq,

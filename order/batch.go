@@ -51,6 +51,10 @@ const (
 	// ExtendAccountBatchVersion is the first version where accounts expiry
 	// are extended after participating in a batch.
 	ExtendAccountBatchVersion BatchVersion = 1
+
+	// ExtendAccountBatchVersion is the first version where accounts expiry
+	// are extended after participating in a batch.
+	PrivateChannelsBatchVersion BatchVersion = 2
 )
 
 const (
@@ -66,6 +70,12 @@ const (
 // supports or not account extension after participating in a batch.
 func (bv BatchVersion) SupportsAccountExtension() bool {
 	return bv >= ExtendAccountBatchVersion
+}
+
+// SupportsPrivateChannels is a helper function to easily check if a version
+// supports or not account extension after participating in a batch.
+func (bv BatchVersion) SupportsPrivateChannels() bool {
+	return bv >= PrivateChannelsBatchVersion
 }
 
 // BatchID is a 33-byte point that uniquely identifies this batch. This ID
