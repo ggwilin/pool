@@ -100,6 +100,11 @@ var baseBidFlags = []cli.Flag{
 			"from our account into the channel; can be " +
 			"used to create up to 50/50 balanced channels",
 	},
+	cli.BoolFlag{
+		Name: "private_channel",
+		Usage: "signal if the new channel should be announced to " +
+			"the network or not.",
+	},
 }
 
 var sharedFlags = []cli.Flag{
@@ -551,6 +556,7 @@ func parseBaseBid(ctx *cli.Context) (*poolrpc.Bid, *sidecar.Ticket, error) {
 		LeaseDurationBlocks: uint32(ctx.Uint64("lease_duration_blocks")),
 		Version:             uint32(order.VersionChannelType),
 		MinNodeTier:         nodeTier,
+		PrivateChannel:      ctx.Bool("private_channel"),
 	}
 
 	// Let's find out if this is an order for a sidecar channel because if
