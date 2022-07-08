@@ -308,6 +308,7 @@ func ParseRPCServerBid(details *auctioneerrpc.ServerBid) (*MatchedOrder, error) 
 	o.Order = &Bid{
 		Kit:             *kit,
 		SelfChanBalance: btcutil.Amount(details.SelfChanBalance),
+		PrivateChannel:  details.PrivateChannel,
 	}
 
 	return o, nil
@@ -455,7 +456,6 @@ func ParseRPCMatchedOrders(orders *auctioneerrpc.MatchedOrder) ([]*MatchedOrder,
 					"bid: %v", err)
 			}
 			matchedBid.UnitsFilled = SupplyUnit(bid.UnitsFilled)
-
 			result = append(result, matchedBid)
 		}
 	}

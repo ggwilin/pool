@@ -472,6 +472,7 @@ func (c *Client) SubmitOrder(ctx context.Context, o order.Order,
 			MinNodeTier:         nodeTierEnum,
 			SelfChanBalance:     uint64(castOrder.SelfChanBalance),
 			IsSidecarChannel:    castOrder.SidecarTicket != nil,
+			PrivateChannel:      castOrder.PrivateChannel,
 		}
 		rpcRequest.Details = &auctioneerrpc.ServerSubmitOrderRequest_Bid{
 			Bid: serverBid,

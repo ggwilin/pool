@@ -1380,6 +1380,7 @@ func (s *rpcServer) SubmitOrder(ctx context.Context,
 			MinNodeTier:     nodeTier,
 			SelfChanBalance: btcutil.Amount(b.SelfChanBalance),
 			SidecarTicket:   ticket,
+			PrivateChannel:  b.PrivateChannel,
 		}
 
 	default:
